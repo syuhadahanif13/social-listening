@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raja Emas Indonesia — Social Listening & Brand Intelligence</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="logo.png">
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container header-inner">
+      <div class="brand-wrapper">
+        <div class="brand-logo">
+          <img src="logo.png" alt="Raja Emas Indonesia" class="brand-logo-img">
+          <span>Raja Emas Indonesia</span>
+        </div>
+        <div class="brand-subtitle">Social Listening & Trend Intelligence</div>
+      </div>
+
+      <div class="header-actions">
+        <div class="badge badge-connected" id="db-status-badge">
+          <span class="status-dot">●</span> DB: Connected
+        </div>
+        <div class="badge badge-info" id="actor-badge">
+          Apify: trendsmcp/social-listening-mcp
+        </div>
+        <button class="btn-primary" id="btn-scan" onclick="triggerScan()">
+          <span id="scan-icon" style="display: inline-flex; align-items: center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          </span>
+          <span id="scan-text">Scan Now</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Top Metric Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-title">Total Mentions</div>
+        <div class="metric-value" id="kpi-total-mentions">0</div>
+        <div class="metric-delta delta-positive">Across 6+ Platforms</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Positive Sentiment</div>
+        <div class="metric-value delta-positive" id="kpi-positive-pct">0%</div>
+        <div class="metric-delta delta-positive">Brand Reputation</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Neutral Sentiment</div>
+        <div class="metric-value delta-neutral" id="kpi-neutral-pct">0%</div>
+        <div class="metric-delta delta-neutral">Inquiries & Price Checks</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Negative Sentiment</div>
+        <div class="metric-value delta-negative" id="kpi-negative-pct">0%</div>
+        <div class="metric-delta delta-negative">Issues & Warnings</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Top Trending Platform</div>
+        <div class="metric-value metric-platform" id="kpi-top-platform">Google</div>
+        <div class="metric-delta delta-positive" id="kpi-growth-rate">+15.3% Growth</div>
+      </div>
+    </div>
+
+    <!-- Charts & Trends Section -->
+    <div class="dashboard-grid">
+      <!-- Cross Platform Trends -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Platform Normalized Trend Scores (0 - 100)</span>
+          </div>
+          <span style="font-size: 12px; color: var(--text-secondary);">Source: Apify & TrendsMCP</span>
+        </div>
+        <div id="trends-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Sentiment Distribution -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <span>Sentiment Breakdown</span>
+          </div>
+        </div>
+        
+        <div class="sentiment-bar-container">
+          <div class="sent-fill-pos" id="bar-pos" style="width: 50%;"></div>
+          <div class="sent-fill-neu" id="bar-neu" style="width: 30%;"></div>
+          <div class="sent-fill-neg" id="bar-neg" style="width: 20%;"></div>
+        </div>
+
+        <div class="sentiment-legend">
+          <div class="legend-item">
+            <span style="color: var(--positive); font-weight: 700;" id="leg-pos-count">0</span>
+            <span style="font-size: 12px; color: var(--text-secondary);"><span class="legend-dot" style="background: var(--positive);"></span> Positif</span>
+          </div>
+          <div class="legend-item">
+            <span style="color: var(--neutral); font-weight: 700;" id="leg-neu-count">0</span>
+            <span style="font-size: 12px; color: var(--text-secondary);"><span class="legend-dot" style="background: var(--neutral);"></span> Netral</span>
+          </div>
+          <div class="legend-item">
+            <span style="color: var(--negative); font-weight: 700;" id="leg-neg-count">0</span>
+            <span style="font-size: 12px; color: var(--text-secondary);"><span class="legend-dot" style="background: var(--negative);"></span> Negatif</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mentions Feed Section -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Social Mentions Stream</span>
+        </div>
+        <span style="font-size: 13px; color: var(--text-secondary);" id="mentions-counter">Showing 0 mentions</span>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-bar">
+        <select class="filter-select" id="filter-platform" onchange="loadMentions()">
+          <option value="all">Semua Platform</option>
+          <option value="instagram">Instagram</option>
+          <option value="tiktok">TikTok</option>
+          <option value="facebook">Facebook</option>
+          <option value="youtube">YouTube</option>
+          <option value="google_news">Google News</option>
+          <option value="twitter_x">Twitter / X</option>
+          <option value="reddit">Reddit</option>
+        </select>
+
+        <select class="filter-select" id="filter-sentiment" onchange="loadMentions()">
+          <option value="all">Semua Sentimen</option>
+          <option value="positive">Positif</option>
+          <option value="neutral">Netral</option>
+          <option value="negative">Negatif</option>
+        </select>
+
+        <input type="text" class="search-input" id="filter-search" placeholder="Cari konten, kata kunci, atau akun pengunggah..." onkeyup="handleSearch(event)">
+      </div>
+
+      <!-- Mentions Container -->
+      <div class="mentions-list" id="mentions-list">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
