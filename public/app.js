@@ -216,6 +216,7 @@ async function triggerScan() {
 
 function formatSourceName(source) {
   const map = {
+    'google_reviews': 'Google Reviews & Maps',
     'instagram': 'Instagram Posts & Comments',
     'tiktok': 'TikTok Mentions & Videos',
     'facebook': 'Facebook Posts & Comments',
