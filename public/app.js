@@ -1,4 +1,5 @@
 let searchTimeout = null;
+let currentTimeRange = '7d';
 
 // Determine backend API URL (direct when on api.rajaemas.id, or remote when hosted on Vercel)
 const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'api.rajaemas.id')
@@ -16,6 +17,38 @@ async function initDashboard() {
     loadSentimentStats(),
     loadMentions()
   ]);
+}
+
+function handleTimeRangeChange(value) {
+  currentTimeRange = value;
+
+  // Sync both selectors if both are present in DOM
+  const globalSel = document.getElementById('global-timerange');
+  const filterSel = document.getElementById('filter-timerange');
+  if (globalSel && globalSel.value !== value) globalSel.value = value;
+  if (filterSel && filterSel.value !== value) filterSel.value = value;
+
+  // Update label on KPI card
+  const labelEl = document.getElementById('kpi-timerange-label');
+  if (labelEl) {
+    labelEl.innerText = `Rentang: ${formatTimeRangeLabel(value)}`;
+  }
+
+  // Reload all dashboard sections
+  loadTrends();
+  loadSentimentStats();
+  loadMentions();
+}
+
+function formatTimeRangeLabel(val) {
+  const map = {
+    '24h': '24 Jam Terakhir',
+    '7d': '7 Hari Terakhir',
+    '30d': '30 Hari Terakhir',
+    '90d': '90 Hari Terakhir',
+    'all': 'Semua Waktu'
+  };
+  return map[val] || val;
 }
 
 async function checkHealth() {
@@ -46,12 +79,12 @@ async function checkHealth() {
 async function loadTrends() {
   const container = document.getElementById('trends-container');
   try {
-    const res = await fetch(`${API_BASE}/api/trends`);
+    const res = await fetch(`${API_BASE}/api/trends?timeRange=${currentTimeRange}`);
     const data = await res.json();
     const trends = data.trends || [];
 
     if (trends.length === 0) {
-      container.innerHTML = '<div style="color: var(--text-secondary); padding: 20px;">Belum ada data tren terkumpul.</div>';
+      container.innerHTML = '<div style="color: var(--text-secondary); padding: 20px;">Belum ada data tren terkumpul untuk rentang waktu ini.</div>';
       return;
     }
 
@@ -92,7 +125,7 @@ async function loadTrends() {
 
 async function loadSentimentStats() {
   try {
-    const res = await fetch(`${API_BASE}/api/sentiment/stats`);
+    const res = await fetch(`${API_BASE}/api/sentiment/stats?timeRange=${currentTimeRange}`);
     const data = await res.json();
     const stats = data.stats || { positive_pct: 0, neutral_pct: 0, negative_pct: 0, positive: 0, neutral: 0, negative: 0, total: 0 };
 
@@ -125,6 +158,7 @@ async function loadMentions() {
   if (platform !== 'all') params.append('platform', platform);
   if (sentiment !== 'all') params.append('sentiment', sentiment);
   if (search) params.append('search', search);
+  if (currentTimeRange) params.append('timeRange', currentTimeRange);
 
   try {
     const res = await fetch(`${API_BASE}/api/mentions?${params.toString()}`);

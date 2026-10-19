@@ -163,36 +163,95 @@ async function executeListeningCycle(brandName = 'Raja Emas Indonesia', triggerN
 }
 
 /**
+ * Helper to generate SQL interval condition for time range
+ */
+function getTimeRangeSql(timeRange) {
+  switch (timeRange) {
+    case '24h':
+    case '1d':
+      return ' AND published_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)';
+    case '7d':
+      return ' AND published_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    case '30d':
+    case '1m':
+      return ' AND published_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+    case '90d':
+    case '3m':
+      return ' AND published_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
+    case 'all':
+      return '';
+    default:
+      return '';
+  }
+}
+
+/**
+ * In-memory time range filter helper
+ */
+function filterByTimeRange(items, timeRange) {
+  if (!timeRange || timeRange === 'all') return items;
+  const now = Date.now();
+  let ms = 0;
+  if (timeRange === '24h' || timeRange === '1d') ms = 24 * 60 * 60 * 1000;
+  else if (timeRange === '7d') ms = 7 * 24 * 60 * 60 * 1000;
+  else if (timeRange === '30d' || timeRange === '1m') ms = 30 * 24 * 60 * 60 * 1000;
+  else if (timeRange === '90d' || timeRange === '3m') ms = 90 * 24 * 60 * 60 * 1000;
+  else return items;
+
+  const cutoff = now - ms;
+  return items.filter(item => {
+    if (!item.published_at) return true;
+    const itemDate = new Date(item.published_at).getTime();
+    return !isNaN(itemDate) ? itemDate >= cutoff : true;
+  });
+}
+
+/**
  * Retrieves social mentions with filtering
  */
-async function getMentions({ platform, sentiment, search, limit = 20, offset = 0 } = {}) {
+async function getMentions({ platform, sentiment, search, timeRange = '7d', limit = 20, offset = 0 } = {}) {
   const pool = isDbConnected() ? getPool() : null;
 
   if (pool) {
     let sql = `SELECT * FROM social_mentions WHERE 1=1`;
+    let countSql = `SELECT COUNT(*) as total FROM social_mentions WHERE 1=1`;
     const params = [];
+    const countParams = [];
 
     if (platform && platform !== 'all') {
       sql += ` AND platform = ?`;
+      countSql += ` AND platform = ?`;
       params.push(platform);
+      countParams.push(platform);
     }
     if (sentiment && sentiment !== 'all') {
       sql += ` AND sentiment_label = ?`;
+      countSql += ` AND sentiment_label = ?`;
       params.push(sentiment);
+      countParams.push(sentiment);
     }
     if (search) {
       sql += ` AND (content LIKE ? OR author LIKE ? OR title LIKE ?)`;
+      countSql += ` AND (content LIKE ? OR author LIKE ? OR title LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const timeSql = getTimeRangeSql(timeRange);
+    if (timeSql) {
+      sql += timeSql;
+      countSql += timeSql;
     }
 
     sql += ` ORDER BY published_at DESC LIMIT ? OFFSET ?`;
     params.push(parseInt(limit, 10), parseInt(offset, 10));
 
     const [rows] = await pool.query(sql, params);
-    const [countResult] = await pool.query(`SELECT COUNT(*) as total FROM social_mentions`);
+    const [countResult] = await pool.query(countSql, countParams);
 
     return {
       total: countResult[0]?.total || rows.length,
+      timeRange: timeRange || 'all',
       items: rows
     };
   }
@@ -209,6 +268,7 @@ async function getMentions({ platform, sentiment, search, limit = 20, offset = 0
     inMemoryMentions = items;
   }
 
+  items = filterByTimeRange(items, timeRange);
   if (platform && platform !== 'all') items = items.filter(i => i.platform === platform);
   if (sentiment && sentiment !== 'all') items = items.filter(i => i.sentiment_label === sentiment);
   if (search) {
@@ -222,17 +282,51 @@ async function getMentions({ platform, sentiment, search, limit = 20, offset = 0
 
   return {
     total: items.length,
+    timeRange: timeRange || 'all',
     items: items.slice(offset, offset + limit)
   };
 }
 
 /**
- * Retrieves current trend metrics
+ * Retrieves current trend metrics filtered by time range
  */
-async function getTrends() {
+async function getTrends(timeRange = '7d') {
   const pool = isDbConnected() ? getPool() : null;
 
   if (pool) {
+    const timeSql = getTimeRangeSql(timeRange);
+
+    // Calculate dynamic platform trend metrics from social_mentions within the selected period
+    const [mentionStats] = await pool.query(
+      `SELECT platform as source, 
+              COUNT(*) as count,
+              SUM(engagement_likes + engagement_comments + engagement_shares + engagement_views) as total_engagement,
+              AVG(sentiment_score) as avg_score
+       FROM social_mentions
+       WHERE 1=1 ${timeSql}
+       GROUP BY platform
+       ORDER BY count DESC`
+    );
+
+    if (mentionStats.length > 0) {
+      const maxMentions = Math.max(...mentionStats.map(s => parseInt(s.count, 10)), 1);
+
+      return mentionStats.map(stat => {
+        const cnt = parseInt(stat.count, 10);
+        const normalized = Math.min(98, Math.max(25, Math.round((cnt / maxMentions) * 85 + 10)));
+        const growth = Math.round(((parseFloat(stat.avg_score) || 0) * 10 + (cnt * 1.5)) * 10) / 10;
+
+        return {
+          source: stat.source,
+          normalized_score: normalized,
+          score: normalized,
+          growth_pct: growth,
+          growth: growth,
+          mentions_count: cnt
+        };
+      });
+    }
+
     const [rows] = await pool.query(
       `SELECT source, normalized_score, growth_pct, snapshot_date 
        FROM trend_metrics 
@@ -249,17 +343,18 @@ async function getTrends() {
 }
 
 /**
- * Retrieves sentiment breakdown summary
+ * Retrieves sentiment breakdown summary filtered by time range
  */
-async function getSentimentStats() {
+async function getSentimentStats(timeRange = '7d') {
   const pool = isDbConnected() ? getPool() : null;
 
   if (pool) {
-    const [rows] = await pool.query(
-      `SELECT sentiment_label, COUNT(*) as count, AVG(sentiment_score) as avg_score
-       FROM social_mentions
-       GROUP BY sentiment_label`
-    );
+    const timeSql = getTimeRangeSql(timeRange);
+    const sql = `SELECT sentiment_label, COUNT(*) as count, AVG(sentiment_score) as avg_score
+                 FROM social_mentions
+                 WHERE 1=1 ${timeSql}
+                 GROUP BY sentiment_label`;
+    const [rows] = await pool.query(sql);
 
     let positive = 0;
     let neutral = 0;
@@ -279,12 +374,14 @@ async function getSentimentStats() {
       negative,
       positive_pct: total ? Math.round((positive / total) * 100) : 0,
       neutral_pct: total ? Math.round((neutral / total) * 100) : 0,
-      negative_pct: total ? Math.round((negative / total) * 100) : 0
+      negative_pct: total ? Math.round((negative / total) * 100) : 0,
+      timeRange: timeRange || 'all'
     };
   }
 
   // Memory calculation
-  const mentions = inMemoryMentions.length > 0 ? inMemoryMentions : (await getMentions()).items;
+  let mentions = inMemoryMentions.length > 0 ? inMemoryMentions : (await getMentions({ timeRange })).items;
+  mentions = filterByTimeRange(mentions, timeRange);
   let positive = 0, neutral = 0, negative = 0;
   for (const m of mentions) {
     if (m.sentiment_label === 'positive') positive++;
@@ -299,7 +396,8 @@ async function getSentimentStats() {
     negative,
     positive_pct: total ? Math.round((positive / total) * 100) : 0,
     neutral_pct: total ? Math.round((neutral / total) * 100) : 0,
-    negative_pct: total ? Math.round((negative / total) * 100) : 0
+    negative_pct: total ? Math.round((negative / total) * 100) : 0,
+    timeRange: timeRange || 'all'
   };
 }
 

@@ -21,6 +21,16 @@
       </div>
 
       <div class="header-actions">
+        <div class="time-range-wrapper" title="Filter rentang waktu analisis">
+          <svg class="time-range-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <select class="filter-select timerange-select" id="global-timerange" onchange="handleTimeRangeChange(this.value)">
+            <option value="24h">24 Jam Terakhir</option>
+            <option value="7d" selected>7 Hari Terakhir</option>
+            <option value="30d">30 Hari Terakhir</option>
+            <option value="90d">90 Hari Terakhir</option>
+            <option value="all">Semua Waktu</option>
+          </select>
+        </div>
         <div class="badge badge-connected" id="db-status-badge">
           <span class="status-dot">●</span> DB: Connected
         </div>
@@ -43,7 +53,7 @@
       <div class="metric-card">
         <div class="metric-title">Total Mentions</div>
         <div class="metric-value" id="kpi-total-mentions">0</div>
-        <div class="metric-delta delta-positive">Across 6+ Platforms</div>
+        <div class="metric-delta delta-positive" id="kpi-timerange-label">Rentang: 7 Hari Terakhir</div>
       </div>
 
       <div class="metric-card">
@@ -131,6 +141,14 @@
 
       <!-- Filters -->
       <div class="filters-bar">
+        <select class="filter-select" id="filter-timerange" onchange="handleTimeRangeChange(this.value)">
+          <option value="24h">24 Jam Terakhir</option>
+          <option value="7d" selected>7 Hari Terakhir</option>
+          <option value="30d">30 Hari Terakhir</option>
+          <option value="90d">90 Hari Terakhir</option>
+          <option value="all">Semua Waktu</option>
+        </select>
+
         <select class="filter-select" id="filter-platform" onchange="loadMentions()">
           <option value="all">Semua Platform</option>
           <option value="google_reviews">Google Reviews</option>
